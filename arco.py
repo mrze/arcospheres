@@ -78,6 +78,19 @@ class Arcos:
         return "{"+', '.join(fields)+"}"
 
 
+research = {
+    'Research1A': Arcos(zeta=-1, omega=-1, lamb=2),
+    'Research1B': Arcos(zeta=-1, omega=-1, phi=2),
+    'Research2A': Arcos(lamb=-1, xi=-1, zeta=1, theta=1),
+    'Research2B': Arcos(lamb=-1, xi=-1, epsilon=1, phi=1),
+    'Research3A': Arcos(theta=-1, gamma=-1, epsilon=2),
+    'Research3B': Arcos(theta=-1, gamma=-1, zeta=2),
+    'Research4A': Arcos(epsilon=-1, phi=-1, zeta=1, theta=1),
+    'Research4B': Arcos(epsilon=-1, phi=-1, omega=1, gamma=1),
+    'TesseractA': Arcos(lamb=-1, xi=-1, zeta=-1, theta=1, epsilon=1, phi=1),
+    'TesseractB': Arcos(lamb=-1, xi=-1, zeta=-1, phi=1, gamma=1, omega=1),
+}
+
 
 transforms = {
     'InversionA': Arcos(lamb=1, xi=1, epsilon=1, phi=1, zeta=-1, theta=-1, gamma=-1, omega=-1),
