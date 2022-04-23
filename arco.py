@@ -54,6 +54,22 @@ class Arcos:
         return total
 
 
+
+    def countSubgroups(self):
+        return (self.lamb + self.xi + self.epsilon + self.phi, self.zeta + self.theta + self.gamma + self.omega)
+
+
+    def subgroupsMatch(self, other):
+        myCount = self.countSubgroups()
+        otherCount = other.countSubgroups()
+
+        if myCount[0] == otherCount[0] and myCount[1] == otherCount[1]:
+            return True
+        if myCount[0] == otherCount[1] and myCount[1] == otherCount[0]:
+            return True
+        return False
+
+
     def empty(self) -> bool:
         for f, v in self.vals():
             if v != 0:
@@ -131,6 +147,9 @@ transforms = {
 
 
 def solve(name, start, end):
+    if not start.subgroupsMatch(end):
+        print("Subgroups do not match:", start.countSubgroups(), end.countSubgroups())
+
     print("Solving: ", name)
     path = dijkstra2(start, end)
     if path:
@@ -140,7 +159,7 @@ def solve(name, start, end):
     return path
 
 
-def dijkstra2(start: Arcos, dest: Arcos, max_steps = 30000) -> List[str]:
+def dijkstra2(start: Arcos, dest: Arcos, max_steps = 10000000) -> List[str]:
     print("Searching from:", start, "to", dest)
     i = 0
 
@@ -164,9 +183,9 @@ def dijkstra2(start: Arcos, dest: Arcos, max_steps = 30000) -> List[str]:
 
             if n not in seen:
                 # first time we've seen this combination
-                error = n.error(dest)
-                #heapq.heappush(pq, (error, n))
-                heapq.heappush(pq, (steps[current] + 1, n))
+                error = n.error(dest) + steps[current] + 1
+                heapq.heappush(pq, (error, n))
+                #heapq.heappush(pq, (steps[current] + 1, n))
                 steps[n] = steps[current] + 1
                 path[n] = path[current] + [tn]
 
@@ -174,6 +193,8 @@ def dijkstra2(start: Arcos, dest: Arcos, max_steps = 30000) -> List[str]:
                 return path[n]
 
         i += 1
+        if i % 10000 == 0:
+            print("step: ", i, current, "path len:", steps[current])
         if i > max_steps:
             return []
     return []
@@ -195,10 +216,12 @@ def print_path(start: Arcos, path: List[str]) -> None:
 
     print("Start:", start, " (plus byproducts:", base, ")")
     c = start.add(base)
+    i = 1
     for t in path:
-        print("apply", t, "->", transforms[t].repr_as_transform())
+        print("#" + str(i) + " apply", t, "->", transforms[t].repr_as_transform())
         c = c.add(transforms[t])
         print("-> gives", c)
+        i += 1
     print("Bingo")
 
 
@@ -342,10 +365,17 @@ def simulate(path):
 
 
 def main() -> None:
-    r = research['Research1B']
-    r = r.mul(2)
-    path = solve("Research 1, right RNG * 2", r.outputs(), r.inputs().neg())
-    simulate([r.outputs()] + [transforms[p] for p in path] + [r.inputs()])
+    r = research['Research1A'].mul(2)
+    path = solve("Research1A", r.outputs(), r.inputs().neg())
+
+    r = research['TesseractA'].mul(4)
+    path = solve("TesseractA * 4", r.outputs(), r.inputs().neg())
+
+    r = research['TesseractB'].mul(4)
+    path = solve("TesseractB * 4", r.outputs(), r.inputs().neg())
+
+
+    #simulate([r.outputs()] + [transforms[p] for p in path] + [r.inputs()])
 
 
 if __name__ == '__main__':
