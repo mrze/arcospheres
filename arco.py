@@ -89,6 +89,9 @@ research = {
     'Research4B': Arcos(epsilon=-1, phi=-1, omega=1, gamma=1),
     'TesseractA': Arcos(lamb=-1, xi=-1, zeta=-1, theta=1, epsilon=1, phi=1),
     'TesseractB': Arcos(lamb=-1, xi=-1, zeta=-1, phi=1, gamma=1, omega=1),
+    'ProcessorA': Arcos(zeta=-1, theta=-1, epsilon=-1, phi=-1, gamma=-1, omega=-1, lamb=5, xi=1)
+    'ProcessorB': Arcos(zeta=-1, theta=-1, epsilon=-1, phi=-1, gamma=-1, omega=-1, lamb=1, xi=5)
+    'Research5A': Arcos(lamb=-1, zeta=-1, epsilon=-1, gamma=-1, xi=1, theta=1, phi=1, omega=1)
 }
 
 
