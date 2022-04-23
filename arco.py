@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import List
+
 from collections import defaultdict
 from itertools import product
 
@@ -21,40 +23,59 @@ class Arcos:
 
 
     def add(self, t: 'Arcos') -> 'Arcos':
-        return Arcos(
-            lamb=self.lamb + t.lamb,
-            xi=self.xi + t.xi,
-            zeta=self.zeta + t.zeta,
-            theta=self.theta + t.theta,
-            epsilon=self.epsilon + t.epsilon,
-            phi=self.phi + t.phi,
-            gamma=self.gamma + t.gamma,
-            omega=self.omega + t.omega
-        )
+        return Arcos(**dict((f, v + t.val(f)) for f, v in self.vals()))
 
+    def addOne(self, f) -> 'Arcos':
+        unit = dict()
+        unit[f] = 1
+        return self.add(Arcos(**unit))
 
     def sub(self, t: 'Arcos') -> 'Arcos':
-        return Arcos(
-            lamb=self.lamb - t.lamb,
-            xi=self.xi - t.xi,
-            zeta=self.zeta - t.zeta,
-            theta=self.theta - t.theta,
-            epsilon=self.epsilon - t.epsilon,
-            phi=self.phi - t.phi,
-            gamma=self.gamma - t.gamma,
-            omega=self.omega - t.omega
-        )
+        return Arcos(**dict((f, v - t.val(f)) for f, v in self.vals()))
 
+    def neg(self) -> 'Arcos':
+        return self.mul(-1)
+
+    def mul(self, n) -> 'Arcos':
+        return Arcos(**dict((f, v * n) for f, v in self.vals()))
+
+    def inputs(self) -> 'Arcos':
+        return Arcos(**dict((f, v) for f, v in self.vals() if v < 0))
+
+    def outputs(self) -> 'Arcos':
+        return Arcos(**dict((f, v) for f, v in self.vals() if v > 0))
 
     def error(self, t: 'Arcos') -> int:
         # mean squared error of this away from t
         diff = self.sub(t)
-        return pow(diff.lamb, 2) + pow(diff.xi, 2) + pow(diff.zeta, 2) + pow(diff.theta, 2) + pow(diff.epsilon, 2) + pow(diff.phi, 2) + pow(diff.gamma, 2) + pow(diff.omega, 2)
+        total = 0
+        for f, v in diff.vals():
+            total += pow(v, 2)
+        return total
+
+
+    def empty(self) -> bool:
+        for f, v in self.vals():
+            if v != 0:
+                return False
+        return True
 
 
     def val(self, field) -> int:
         assert field in ARCO_FIELDS
         return getattr(self, field)
+
+
+    def vals(self):
+        for field in ARCO_FIELDS:
+            yield field, getattr(self, field)
+
+
+    def nonEmptyVals(self):
+        for field in ARCO_FIELDS:
+            v = getattr(self, field)
+            if v != 0:
+                yield field, v
 
 
     def repr_as_transform(self) -> str:
@@ -89,9 +110,9 @@ research = {
     'Research4B': Arcos(epsilon=-1, phi=-1, omega=1, gamma=1),
     'TesseractA': Arcos(lamb=-1, xi=-1, zeta=-1, theta=1, epsilon=1, phi=1),
     'TesseractB': Arcos(lamb=-1, xi=-1, zeta=-1, phi=1, gamma=1, omega=1),
-    'ProcessorA': Arcos(zeta=-1, theta=-1, epsilon=-1, phi=-1, gamma=-1, omega=-1, lamb=5, xi=1)
-    'ProcessorB': Arcos(zeta=-1, theta=-1, epsilon=-1, phi=-1, gamma=-1, omega=-1, lamb=1, xi=5)
-    'Research5A': Arcos(lamb=-1, zeta=-1, epsilon=-1, gamma=-1, xi=1, theta=1, phi=1, omega=1)
+    'ProcessorA': Arcos(zeta=-1, theta=-1, epsilon=-1, phi=-1, gamma=-1, omega=-1, lamb=5, xi=1),
+    'ProcessorB': Arcos(zeta=-1, theta=-1, epsilon=-1, phi=-1, gamma=-1, omega=-1, lamb=1, xi=5),
+    'Research5A': Arcos(lamb=-1, zeta=-1, epsilon=-1, gamma=-1, xi=1, theta=1, phi=1, omega=1),
 }
 
 
@@ -116,13 +137,12 @@ def solve(name, start, end):
         print_path(start, path)
     else:
         print("Could not find path :/")
+    return path
 
 
-def dijkstra2(start: Arcos, dest: Arcos, max_steps = 30000) -> list[str]:
+def dijkstra2(start: Arcos, dest: Arcos, max_steps = 30000) -> List[str]:
     print("Searching from:", start, "to", dest)
     i = 0
-
-    results = []
 
     seen: set[Arcos] = set()
 
@@ -151,16 +171,15 @@ def dijkstra2(start: Arcos, dest: Arcos, max_steps = 30000) -> list[str]:
                 path[n] = path[current] + [tn]
 
             if n == dest:
-                print("Found one")
-                print_path(start, path[n])
+                return path[n]
 
         i += 1
         if i > max_steps:
-            return results
+            return []
     return []
 
 
-def normalize_path(start: Arcos, path: list[str]) -> Arcos:
+def normalize_path(start: Arcos, path: List[str]) -> Arcos:
     base = defaultdict(int)
     c = start
     for t in path:
@@ -171,7 +190,7 @@ def normalize_path(start: Arcos, path: list[str]) -> Arcos:
     return Arcos(**base)
 
 
-def print_path(start: Arcos, path: list[str]) -> None:
+def print_path(start: Arcos, path: List[str]) -> None:
     base = normalize_path(start, path)
 
     print("Start:", start, " (plus byproducts:", base, ")")
@@ -183,24 +202,150 @@ def print_path(start: Arcos, path: list[str]) -> None:
     print("Bingo")
 
 
+@dataclass
+class Machine:
+    name: str
+    recipe: 'Arcos' = Arcos()
+    running = False
+    runCount = 0
+
+    def __init__(self, name, recipe):
+        self.name = name
+        if recipe is None:
+            recipe = Arcos()
+        self.inp = recipe.inputs().neg()
+        self.out = recipe.outputs()
+        self.connections_in = defaultdict(list)
+        self.connections_out = defaultdict(list)
+        self.contents = Arcos()
+
+    def check_connections(self):
+        for f, v in self.inp.nonEmptyVals():
+            if f not in self.connections_in:
+                print("Missing connection to", self.name, "for", f)
+            elif len(self.connections_in[f]) != v:
+                print("Incorrect connection count to", self.name, "for", f, "(expected: ", v, "was:", len(self.connections_in[f]),")")
+
+        for f, v in self.out.nonEmptyVals():
+            if f not in self.connections_out:
+                print("Missing connection from", self.name, "for", f)
+            elif len(self.connections_out[f]) != v:
+                print("Incorrect connection count from", self.name, "for", f)
+
+
+    def connect(self, other, f):
+        c = Connection(self, other, type=f)
+        other.connections_in[f].append(c)
+        self.connections_out[f].append(c)
+
+    def fill(self, contents):
+        self.contents = contents
+
+
+    def check_can_run(self, n = 0):
+        self.running = False
+        if not self.inp.empty():
+            if self.contents == self.inp:
+                self.running = True
+        if self.inp.empty() and (n % 10) == 1:
+            self.running = True
+
+
+    def step(self, n = 0):
+        if self.running:
+            print(self.name, "running")
+            self.contents = self.contents.sub(self.inp)
+            self.runCount += 1
+
+            for f, outs in self.connections_out.items():
+                for out in outs:
+                    out.dest.contents = out.dest.contents.addOne(f)
+        else:
+            state = "waiting on input"
+            if not self.inp.empty() and self.contents == self.inp:
+                state = "ready to run"
+
+            if self.runCount > 0:
+                print(self.name, state, "ran:", self.runCount, "(holding: ", self.contents, ", missing: ", self.inp.sub(self.contents), ")")
+            else:
+                print(self.name, state, "(holding: ", self.contents, ", missing: ", self.inp.sub(self.contents), ")")
+        self.running = False
+
+
+@dataclass
+class Connection:
+    source: 'Machine'
+    dest: 'Machine'
+    type: str
+
+
+def simulate(path):
+    r = research['Research1B'].mul(2)
+    machines = [
+        Machine('Machine0', recipe=r.outputs()),
+        Machine('Machine1', recipe=transforms['FoldB']),
+        Machine('Machine2', recipe=transforms['FoldG']),
+        Machine('Machine3', recipe=transforms['FoldG']),
+        Machine('Machine4', recipe=transforms['FoldF']),
+        Machine('Machine5', recipe=transforms['FoldD']),
+        Machine('Machine6', recipe=transforms['InversionB']),
+        Machine('Machine7', recipe=transforms['FoldH']),
+        Machine('Machine8', recipe=r.inputs()),
+    ]
+
+    machines[0].connect(machines[2], 'phi')
+    machines[0].connect(machines[3], 'phi')
+    machines[0].connect(machines[4], 'phi')
+    machines[0].connect(machines[6], 'phi')
+
+    machines[1].connect(machines[5], 'lamb')
+    machines[1].connect(machines[4], 'zeta')
+    machines[1].fill(Arcos(gamma=1))
+
+    machines[2].connect(machines[6], 'xi')
+    machines[2].connect(machines[7], 'omega')
+    machines[2].fill(Arcos(gamma=1))
+
+    machines[3].connect(machines[1], 'xi')
+    machines[3].connect(machines[8], 'omega')
+    machines[3].fill(Arcos(gamma=1))
+
+    machines[4].connect(machines[6], 'epsilon')
+    machines[4].connect(machines[1], 'gamma')
+
+    machines[5].connect(machines[8], 'zeta')
+    machines[5].connect(machines[7], 'epsilon')
+
+    machines[6].connect(machines[8], 'zeta')
+    machines[6].connect(machines[5], 'theta')
+    machines[6].connect(machines[2], 'gamma')
+    machines[6].connect(machines[8], 'omega')
+    machines[6].fill(Arcos(lamb=1))
+
+    machines[7].connect(machines[6], 'lamb')
+    machines[7].connect(machines[3], 'gamma')
+
+    for m in machines:
+        m.check_connections()
+
+
+    for step in range(0, 40):
+        print("STEP: ", step)
+        for m in machines:
+            m.check_can_run(step)
+        for m in machines:
+            m.step(step)
+            step += 1
+
+
+
+
+
 def main() -> None:
-    c = Arcos(phi=4, xi=1, theta= 1, epsilon=1, gamma=2, omega=1)
-    print(c)
-    print("Apply FoldG 2x")
-    c = c.add(transforms['FoldG'])
-    c = c.add(transforms['FoldG'])
-    c = c.add(transforms['InversionB'])
-    print(c)
-
-    #solve("Research 1, left RNG * 2", Arcos(lamb=4), Arcos(zeta=2, omega=2))
-    #solve("Research 1, right RNG * 2", Arcos(phi=4), Arcos(zeta=2, omega=2))
-    #solve("Research 1, left+right RNG", Arcos(lamb=2, phi=2), Arcos(zeta=2, omega=2))
-    #print()
-
-    #solve("Research 2, left RNG * 2", Arcos(zeta= 2, theta= 2), Arcos(lamb= 2, xi= 2))
-    #solve("Research 2, right RNG * 2", Arcos(epsilon= 2, phi= 2), Arcos(lamb= 2, xi= 2))
-    #solve("Research 2, left+right RNG", Arcos(zeta= 1, theta= 1, epsilon= 1, phi= 1), Arcos(lamb= 2, xi= 2))
-    #print()
+    r = research['Research1B']
+    r = r.mul(2)
+    path = solve("Research 1, right RNG * 2", r.outputs(), r.inputs().neg())
+    simulate([r.outputs()] + [transforms[p] for p in path] + [r.inputs()])
 
 
 if __name__ == '__main__':
